@@ -3,6 +3,8 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using System.Xml;
+using System.Text;
 
 namespace repoanalyzer
 {
@@ -24,12 +26,36 @@ namespace repoanalyzer
             client.DefaultRequestHeaders.Accept.Add(
                 new MediaTypeWithQualityHeaderValue("application/vnd.github.v3+json"));
             client.DefaultRequestHeaders.Add("User-Agent", ".NET Foundation Repository Reporter");
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer bde73a6c6c059424d9de0934f5383c0e3721108e");
+            client.DefaultRequestHeaders.Add("Authorization", "Bearer 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");
 
-            var stringTask =  client.GetStringAsync("https://api.github.com/repos/quotecenter/catalog-productcatalogsuggest-icp-svc");
+            var stringTask =  client.GetStringAsync("https://api.github.com/repos/quotecenter/catalog-productcatalogsuggest-icp-svc/contents/src/Catalog.ProductCatalogSuggest.Icp.Service/Catalog.ProductCatalogSuggest.Icp.Service.csproj?ref=master");
 
             var msg =  await stringTask;
-            Console.Write(msg);
+            dynamic convertMsg = Newtonsoft.Json.JsonConvert.DeserializeObject(msg);
+            string prjFileContent = convertMsg["content"];
+            byte[] newBytes = Convert.FromBase64String(prjFileContent);
+            var base64EncodedBytes = System.Convert.FromBase64String(prjFileContent);
+            string finalXMLContent= System.Text.Encoding.UTF8.GetString(base64EncodedBytes).TrimStart('?');
+            string byteOrderMark = System.Text.Encoding.UTF8.GetString(Encoding.UTF8.GetPreamble());
+            finalXMLContent= finalXMLContent.Replace('\r',' ');
+            finalXMLContent = finalXMLContent.Replace('\n', ' ');
+            //finalXMLContent = finalXMLContent.Replace(@"Sdk=\","Sdk=");
+            //finalXMLContent = "<?xml version='1.0' encoding='utf-16'?>" + finalXMLContent.Trim();
+            //finalXMLContent = new System.Text.RegularExpressions.Regex("\\<\\?xml.*\\?>").Replace(finalXMLContent, "").Trim();
+            finalXMLContent = finalXMLContent.Trim(byteOrderMark[0]);
+            XmlDocument xmlDoc = new XmlDocument();
+            xmlDoc.LoadXml(finalXMLContent);
+            string xPath = "Project/PropertyGroup/TargetFramework";
+            var frameworkNode = xmlDoc.SelectSingleNode(xPath);
+            xPath = "Project/ItemGroup/PackageReference";
+            var nodes = xmlDoc.SelectNodes(xPath);
+            foreach (XmlNode childNode in nodes)
+            {
+                Console.WriteLine(childNode.Attributes["Include"].InnerText);
+            }
+            
+
+            Console.Write(frameworkNode.InnerText);
         }
     }
 }
